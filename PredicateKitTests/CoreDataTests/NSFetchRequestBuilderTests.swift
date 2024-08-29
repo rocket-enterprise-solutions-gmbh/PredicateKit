@@ -23,6 +23,7 @@ import Foundation
 import XCTest
 
 @testable import PredicateKit
+import enum PredicateKit.Predicate
 
 final class NSFetchRequestBuilderTests: XCTestCase {
 
@@ -87,6 +88,178 @@ final class NSFetchRequestBuilderTests: XCTestCase {
     XCTAssertEqual(comparison.comparisonPredicateModifier, .direct)
   }
 
+  @available(iOS 13.0, watchOS 6.0, tvOS 13.0, *)
+  func testEqualityWithIdentifiable() throws {
+    guard let identifiable = makeIdentifiable() else {
+      XCTFail("could not initialize IdentifiableData")
+      return
+    }
+
+    identifiable.id = "42"
+
+    let request = makeRequest(\Data.identifiable == identifiable)
+    let builder = makeRequestBuilder()
+
+    let result: NSFetchRequest<Data> = builder.makeRequest(from: request)
+
+    let comparison = try XCTUnwrap(result.predicate as? NSComparisonPredicate)
+    XCTAssertEqual(comparison.leftExpression, NSExpression(forKeyPath: "identifiable.id"))
+    XCTAssertEqual(comparison.rightExpression, NSExpression(forConstantValue: "42"))
+    XCTAssertEqual(comparison.predicateOperatorType, .equalTo)
+    XCTAssertEqual(comparison.comparisonPredicateModifier, .direct)
+  }
+
+  @available(iOS 13.0, watchOS 6.0, tvOS 13.0, *)
+  func testEqualityWithOptionalIdentifiable() throws {
+    guard let identifiable = makeIdentifiable() else {
+      XCTFail("could not initialize IdentifiableData")
+      return
+    }
+
+    identifiable.id = "42"
+
+    let request = makeRequest(\Data.optionalIdentifiable == identifiable)
+    let builder = makeRequestBuilder()
+
+    let result: NSFetchRequest<Data> = builder.makeRequest(from: request)
+
+    let comparison = try XCTUnwrap(result.predicate as? NSComparisonPredicate)
+    XCTAssertEqual(comparison.leftExpression, NSExpression(forKeyPath: "optionalIdentifiable.id"))
+    XCTAssertEqual(comparison.rightExpression, NSExpression(forConstantValue: "42"))
+    XCTAssertEqual(comparison.predicateOperatorType, .equalTo)
+    XCTAssertEqual(comparison.comparisonPredicateModifier, .direct)
+  }
+
+  func testEqualityWithRawRepresentable() throws {
+    let request = makeRequest(\Data.dataType == .two)
+    let builder = makeRequestBuilder()
+
+    let result: NSFetchRequest<Data> = builder.makeRequest(from: request)
+
+    let comparison = try XCTUnwrap(result.predicate as? NSComparisonPredicate)
+    XCTAssertEqual(comparison.leftExpression, NSExpression(forKeyPath: "dataType"))
+    XCTAssertEqual(comparison.rightExpression, NSExpression(forConstantValue: DataType.two.rawValue))
+    XCTAssertEqual(comparison.predicateOperatorType, .equalTo)
+    XCTAssertEqual(comparison.comparisonPredicateModifier, .direct)
+  }
+
+  func testLessThanWithRawRepresentable() throws {
+    let request = makeRequest(\Data.dataType < .two)
+    let builder = makeRequestBuilder()
+
+    let result: NSFetchRequest<Data> = builder.makeRequest(from: request)
+
+    let comparison = try XCTUnwrap(result.predicate as? NSComparisonPredicate)
+    XCTAssertEqual(comparison.leftExpression, NSExpression(forKeyPath: "dataType"))
+    XCTAssertEqual(comparison.rightExpression, NSExpression(forConstantValue: DataType.two.rawValue))
+    XCTAssertEqual(comparison.predicateOperatorType, .lessThan)
+    XCTAssertEqual(comparison.comparisonPredicateModifier, .direct)
+  }
+
+  func testLessThanOrEqualWithRawRepresentable() throws {
+    let request = makeRequest(\Data.dataType <= .two)
+    let builder = makeRequestBuilder()
+
+    let result: NSFetchRequest<Data> = builder.makeRequest(from: request)
+
+    let comparison = try XCTUnwrap(result.predicate as? NSComparisonPredicate)
+    XCTAssertEqual(comparison.leftExpression, NSExpression(forKeyPath: "dataType"))
+    XCTAssertEqual(comparison.rightExpression, NSExpression(forConstantValue: DataType.two.rawValue))
+    XCTAssertEqual(comparison.predicateOperatorType, .lessThanOrEqualTo)
+    XCTAssertEqual(comparison.comparisonPredicateModifier, .direct)
+  }
+
+  func testGreaterThanWithRawRepresentable() throws {
+    let request = makeRequest(\Data.dataType > .two)
+    let builder = makeRequestBuilder()
+
+    let result: NSFetchRequest<Data> = builder.makeRequest(from: request)
+
+    let comparison = try XCTUnwrap(result.predicate as? NSComparisonPredicate)
+    XCTAssertEqual(comparison.leftExpression, NSExpression(forKeyPath: "dataType"))
+    XCTAssertEqual(comparison.rightExpression, NSExpression(forConstantValue: DataType.two.rawValue))
+    XCTAssertEqual(comparison.predicateOperatorType, .greaterThan)
+    XCTAssertEqual(comparison.comparisonPredicateModifier, .direct)
+  }
+
+  func testGreaterThanOrEqualWithRawRepresentable() throws {
+    let request = makeRequest(\Data.dataType >= .two)
+    let builder = makeRequestBuilder()
+
+    let result: NSFetchRequest<Data> = builder.makeRequest(from: request)
+
+    let comparison = try XCTUnwrap(result.predicate as? NSComparisonPredicate)
+    XCTAssertEqual(comparison.leftExpression, NSExpression(forKeyPath: "dataType"))
+    XCTAssertEqual(comparison.rightExpression, NSExpression(forConstantValue: DataType.two.rawValue))
+    XCTAssertEqual(comparison.predicateOperatorType, .greaterThanOrEqualTo)
+    XCTAssertEqual(comparison.comparisonPredicateModifier, .direct)
+  }
+
+  func testEqualityWithRawRepresentableConformingToPrimitive() throws {
+    let request = makeRequest(\Data.primitiveDataType == .three)
+    let builder = makeRequestBuilder()
+
+    let result: NSFetchRequest<Data> = builder.makeRequest(from: request)
+
+    let comparison = try XCTUnwrap(result.predicate as? NSComparisonPredicate)
+    XCTAssertEqual(comparison.leftExpression, NSExpression(forKeyPath: "primitiveDataType"))
+    XCTAssertEqual(comparison.rightExpression, NSExpression(forConstantValue: PrimitiveDataType.three.rawValue))
+    XCTAssertEqual(comparison.predicateOperatorType, .equalTo)
+    XCTAssertEqual(comparison.comparisonPredicateModifier, .direct)
+  }
+
+  func testLessThanWithRawRepresentableConformingToPrimitive() throws {
+    let request = makeRequest(\Data.primitiveDataType < .two)
+    let builder = makeRequestBuilder()
+
+    let result: NSFetchRequest<Data> = builder.makeRequest(from: request)
+
+    let comparison = try XCTUnwrap(result.predicate as? NSComparisonPredicate)
+    XCTAssertEqual(comparison.leftExpression, NSExpression(forKeyPath: "primitiveDataType"))
+    XCTAssertEqual(comparison.rightExpression, NSExpression(forConstantValue: PrimitiveDataType.two.rawValue))
+    XCTAssertEqual(comparison.predicateOperatorType, .lessThan)
+    XCTAssertEqual(comparison.comparisonPredicateModifier, .direct)
+  }
+
+  func testLessThanOrEqualWithRawRepresentableConformingToPrimitive() throws {
+    let request = makeRequest(\Data.primitiveDataType <= .two)
+    let builder = makeRequestBuilder()
+
+    let result: NSFetchRequest<Data> = builder.makeRequest(from: request)
+
+    let comparison = try XCTUnwrap(result.predicate as? NSComparisonPredicate)
+    XCTAssertEqual(comparison.leftExpression, NSExpression(forKeyPath: "primitiveDataType"))
+    XCTAssertEqual(comparison.rightExpression, NSExpression(forConstantValue: PrimitiveDataType.two.rawValue))
+    XCTAssertEqual(comparison.predicateOperatorType, .lessThanOrEqualTo)
+    XCTAssertEqual(comparison.comparisonPredicateModifier, .direct)
+  }
+
+  func testGreaterThanWithRawRepresentableConformingToPrimitive() throws {
+    let request = makeRequest(\Data.primitiveDataType > .two)
+    let builder = makeRequestBuilder()
+
+    let result: NSFetchRequest<Data> = builder.makeRequest(from: request)
+
+    let comparison = try XCTUnwrap(result.predicate as? NSComparisonPredicate)
+    XCTAssertEqual(comparison.leftExpression, NSExpression(forKeyPath: "primitiveDataType"))
+    XCTAssertEqual(comparison.rightExpression, NSExpression(forConstantValue: PrimitiveDataType.two.rawValue))
+    XCTAssertEqual(comparison.predicateOperatorType, .greaterThan)
+    XCTAssertEqual(comparison.comparisonPredicateModifier, .direct)
+  }
+
+  func testGreaterThanOrEqualWithRawRepresentableConformingToPrimitive() throws {
+    let request = makeRequest(\Data.primitiveDataType >= .two)
+    let builder = makeRequestBuilder()
+
+    let result: NSFetchRequest<Data> = builder.makeRequest(from: request)
+
+    let comparison = try XCTUnwrap(result.predicate as? NSComparisonPredicate)
+    XCTAssertEqual(comparison.leftExpression, NSExpression(forKeyPath: "primitiveDataType"))
+    XCTAssertEqual(comparison.rightExpression, NSExpression(forConstantValue: PrimitiveDataType.two.rawValue))
+    XCTAssertEqual(comparison.predicateOperatorType, .greaterThanOrEqualTo)
+    XCTAssertEqual(comparison.comparisonPredicateModifier, .direct)
+  }
+
   func testArrayElementEqualPredicate() throws {
     let request = makeRequest((\Data.relationships).last(\.count) == 42)
     let builder = makeRequestBuilder()
@@ -106,6 +279,61 @@ final class NSFetchRequestBuilderTests: XCTestCase {
     let comparison = try XCTUnwrap(result.predicate as? NSComparisonPredicate)
     XCTAssertEqual(comparison.leftExpression, NSExpression(forKeyPath: "text"))
     XCTAssertEqual(comparison.rightExpression, NSExpression(forConstantValue: "Hello, World!"))
+    XCTAssertEqual(comparison.predicateOperatorType, .notEqualTo)
+    XCTAssertEqual(comparison.comparisonPredicateModifier, .direct)
+  }
+
+  @available(iOS 13.0, watchOS 6.0, tvOS 13.0, *)
+  func testNotEqualWithIdentifiable() throws {
+    guard let identifiable = makeIdentifiable() else {
+      XCTFail("could not initialize IdentifiableData")
+      return
+    }
+
+    identifiable.id = "42"
+
+    let request = makeRequest(\Data.identifiable != identifiable)
+    let builder = makeRequestBuilder()
+
+    let result: NSFetchRequest<Data> = builder.makeRequest(from: request)
+
+    let comparison = try XCTUnwrap(result.predicate as? NSComparisonPredicate)
+    XCTAssertEqual(comparison.leftExpression, NSExpression(forKeyPath: "identifiable.id"))
+    XCTAssertEqual(comparison.rightExpression, NSExpression(forConstantValue: "42"))
+    XCTAssertEqual(comparison.predicateOperatorType, .notEqualTo)
+    XCTAssertEqual(comparison.comparisonPredicateModifier, .direct)
+  }
+
+  @available(iOS 13.0, watchOS 6.0, tvOS 13.0, *)
+  func testNotEqualWithOptionalIdentifiable() throws {
+    guard let identifiable = makeIdentifiable() else {
+      XCTFail("could not initialize IdentifiableData")
+      return
+    }
+
+    identifiable.id = "42"
+
+    let request = makeRequest(\Data.optionalIdentifiable != identifiable)
+    let builder = makeRequestBuilder()
+
+    let result: NSFetchRequest<Data> = builder.makeRequest(from: request)
+
+    let comparison = try XCTUnwrap(result.predicate as? NSComparisonPredicate)
+    XCTAssertEqual(comparison.leftExpression, NSExpression(forKeyPath: "optionalIdentifiable.id"))
+    XCTAssertEqual(comparison.rightExpression, NSExpression(forConstantValue: "42"))
+    XCTAssertEqual(comparison.predicateOperatorType, .notEqualTo)
+    XCTAssertEqual(comparison.comparisonPredicateModifier, .direct)
+  }
+
+  func testNotEqualWithRawRepresentable() throws {
+    let request = makeRequest(\Data.dataType != .two)
+    let builder = makeRequestBuilder()
+
+    let result: NSFetchRequest<Data> = builder.makeRequest(from: request)
+
+    let comparison = try XCTUnwrap(result.predicate as? NSComparisonPredicate)
+    XCTAssertEqual(comparison.leftExpression, NSExpression(forKeyPath: "dataType"))
+    XCTAssertEqual(comparison.rightExpression, NSExpression(forConstantValue: DataType.two.rawValue))
     XCTAssertEqual(comparison.predicateOperatorType, .notEqualTo)
     XCTAssertEqual(comparison.comparisonPredicateModifier, .direct)
   }
@@ -1078,6 +1306,25 @@ final class NSFetchRequestBuilderTests: XCTestCase {
     XCTAssertEqual(comparison.predicateOperatorType, .equalTo)
     XCTAssertEqual(comparison.comparisonPredicateModifier, .direct)
   }
+
+  private func makeIdentifiable() -> IdentifiableData? {
+    guard
+      let model = NSManagedObjectModel.mergedModel(from: [Bundle(for: NSFetchRequestBuilderTests.self)])
+    else {
+      return nil
+    }
+
+    let container = makePersistentContainer(with: model)
+
+    guard let identifiable = NSEntityDescription.insertNewObject(
+      forEntityName: "IdentifiableData",
+      into: container.viewContext
+    ) as? IdentifiableData else {
+      return nil
+    }
+
+    return identifiable
+  }
 }
 
 // MARK: -
@@ -1092,12 +1339,30 @@ private class Data: NSManagedObject {
   @NSManaged var relationships: [Relationship]
   @NSManaged var optionalRelationship: Relationship?
   @NSManaged var optionalRelationships: [Relationship]?
+  @NSManaged var identifiable: IdentifiableData
+  @NSManaged var optionalIdentifiable: IdentifiableData?
+  @NSManaged var dataType: DataType
+  @NSManaged var primitiveDataType: PrimitiveDataType
 }
 
 private class Relationship: NSManagedObject {
   @NSManaged var text: String
   @NSManaged var stocks: [Double]
   @NSManaged var count: Int
+}
+
+@objc private enum DataType: Int {
+  case zero
+  case one
+  case two
+  case three
+}
+
+@objc private enum PrimitiveDataType: Int, Primitive {
+  case zero
+  case one
+  case two
+  case three
 }
 
 private class DataStore: NSAtomicStore {
@@ -1109,6 +1374,10 @@ private class DataStore: NSAtomicStore {
       options: nil
     )
   }
+}
+
+class IdentifiableData: NSManagedObject, Identifiable {
+  @NSManaged var id: String
 }
 
 private func makeRequest<T: NSManagedObject>(_ predicate: Predicate<T>) -> FetchRequest<T> {

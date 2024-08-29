@@ -1,5 +1,5 @@
 # 🎯 PredicateKit
-![GitHub Workflow Status (branch)](https://img.shields.io/github/workflow/status/ftchirou/PredicateKit/Test/main) <img src="https://img.shields.io/badge/coverage-100%25-green"> ![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/ftchirou/PredicateKit) <img src="https://img.shields.io/badge/platforms-iOS%2011%2B%20%7C%20macOS%2010.15%2B%20%7C%20watchOS%205%2B%20%7C%20tvOS%2011%2B-lightgrey"> <img src="https://img.shields.io/badge/swift-%3E%3D%205.1-orange">
+![GitHub Workflow Status (branch)](https://img.shields.io/github/actions/workflow/status/ftchirou/PredicateKit/unit-tests.yml?branch=main) <img src="https://img.shields.io/badge/coverage-100%25-green"> ![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/ftchirou/PredicateKit) <img src="https://img.shields.io/badge/platforms-iOS%2011%2B%20%7C%20macOS%2010.15%2B%20%7C%20watchOS%205%2B%20%7C%20tvOS%2011%2B-lightgrey"> <img src="https://img.shields.io/badge/swift-%3E%3D%205.1-orange">
 
 **PredicateKit** is an alternative to [`NSPredicate`](https://developer.apple.com/documentation/foundation/nspredicate) allowing you to 
 write expressive and type-safe predicates for [CoreData](https://developer.apple.com/documentation/coredata) using [key-paths](https://developer.apple.com/documentation/swift/keypath),
@@ -17,6 +17,7 @@ comparisons and logical operators, literal values, and functions.
   - [Fetching objects](#fetching-objects)
   - [Configuring the fetch](#configuring-the-fetch)
   - [Fetching objects with the @FetchRequest property wrapper](#fetching-objects-with-the-fetchrequest-property-wrapper)
+  - [Fetching objects with the @SectionedFetchRequest property wrapper](#fetching-objects-with-the-sectionedfetchrequest-property-wrapper)
   - [Fetching objects with an NSFetchedResultsController](#fetching-objects-with-an-nsfetchedresultscontroller)
   - [Counting objects](#counting-objects)
 - [Documentation](#documentation)
@@ -238,6 +239,94 @@ struct ContentView: View {
 }
 ```
 
+You can update the predicate associated with your `FetchedResults` using `updatePredicate`.
+
+###### Example
+
+```swift
+import PredicateKit
+import SwiftUI
+
+struct ContentView: View {
+
+  @SwiftUI.FetchRequest(predicate: \Note.text == "Hello, World!")
+  var notes: FetchedResults<Note>
+
+  var body: some View {
+    List(notes, id: \.self) {
+      Text($0.text)
+    }
+    Button("Show recents") {
+      let recentDate: Date = // ...
+      notes.updatePredicate(\Note.createdAt >= recentDate)
+    }
+  }
+}
+```
+
+This will cause the associated `FetchRequest` to execute a fetch with the new predicate when the `Show recents` button is tapped.
+
+## Fetching objects with the @SectionedFetchRequest property wrapper
+
+PredicateKit also extends the SwiftUI [`@SectionedFetchRequest`](https://developer.apple.com/documentation/swiftui/sectionedfetchrequest) property wrapper to support type-safe predicates.
+
+###### Example
+
+```swift
+import PredicateKit
+import SwiftUI
+
+struct ContentView: View {
+  @SwiftUI.SectionedFetchRequest(
+    fetchRequest: FetchRequest(predicate: \User.name == "John Doe"),
+    sectionIdentifier: \.billingInfo.accountType
+  )
+  var users: SectionedFetchResults<String, User>
+  
+  var body: some View {
+    List(users, id: \.id) { section in
+      Section(section.id) {
+        ForEach(section, id: \.objectID) { user in
+          Text(user.name)
+        }
+      }
+    }
+  }
+```
+
+You can update the predicate associated with your `SectionedFetchedResults` using `updatePredicate`.
+
+###### Example
+
+```swift
+import PredicateKit
+import SwiftUI
+
+struct ContentView: View {
+  @SwiftUI.SectionedFetchRequest(
+    fetchRequest: FetchRequest(predicate: \User.name == "John Doe"),
+    sectionIdentifier: \.billingInfo.accountType
+  )
+  var users: SectionedFetchResults<String, User>
+  
+  var body: some View {
+    List(users, id: \.id) { section in
+      Section(section.id) {
+        ForEach(section, id: \.objectID) { user in
+          Text(user.name)
+        }
+      }
+    }
+    Button("Search") {
+      let query: String = // ...
+      users.updatePredicate((\User.name).contains(query))
+    }
+  }
+}
+```
+
+This will cause the associated `FetchRequest` to execute a fetch with the new predicate when the `Search` button is tapped.
+
 ## Fetching objects with an NSFetchedResultsController
 
 In UIKit, you can use `fetchedResultsController()` to create an `NSFetchedResultsController` from a configured fetch request. `fetchedResultsController` has two optional parameters: 
@@ -286,6 +375,17 @@ class Note: NSManagedObject {
   @NSManaged var creationDate: Date
   @NSManaged var numberOfViews: Int
   @NSManaged var tags: [String]
+  @NSManaged var attachment: Attachment
+  @NSManaged var type: NoteType
+}
+
+class Attachment: NSManagedObject, Identifiable {
+  // ...
+}
+
+@objc enum NoteType: Int {
+  case freeForm
+  // ...
 }
 
 // Matches all notes where the text is equal to "Hello, World!".
@@ -296,6 +396,12 @@ let predicate = \Note.creationDate < Date()
 
 // Matches all notes where the number of views is at least 120.
 let predicate = \Note.numberOfViews >= 120
+
+// Matches all notes having the specified attachment (`Attachment` must conform to `Identifiable`).
+let predicate = \Note.attachment == attachment
+
+// Matches all free form notes (assuming `NoteType` is an enumeration whose `RawValue` conforms to `Equatable`).
+let predicate = \Note.type == .freeForm
 ```
 
 #### String comparisons
@@ -350,18 +456,17 @@ let predicate = \Note.numberOfViews ~= 100...200
 
 ###### in
 
-You can use the `in` function to determine whether a property's value is one of the values in a variadic arguments (comma-separated list), an array, or a set.
-
+You can use the `in` function to determine whether a property's value is one of the values in a variadic list of arguments, an array, or a set.
 
 ```swift
 // Matches all notes where the text is one of the elements in the specified variadic arguments list.
-let predicate = (\Note.text).in("a", "b", "c", "d")
+let predicate = (\Note.numberOfViews).in(100, 200, 300, 400)
 
 // Matches all notes where the text is one of the elements in the specified array.
-let predicate = (\Note.text).in(["a", "b", "c", "d"])
+let predicate = (\Note.text).in([100, 200, 300, 400])
 
 // Matches all notes where the text is one of the elements in the specified set.
-let predicate = (\Note.text).in(Set(["a", "b", "c", "d"]))
+let predicate = (\Note.text).in(Set([100, 200, 300, 400]))
 ```
 
 When the property type is a `String`, `in` accepts a second parameter that determines how the string should be compared to the elements in the list.
@@ -551,7 +656,7 @@ class Profile: NSManagedObject {
 }
 
 // Matches all accounts where all the profiles have the creation date equal to the specified one.
-let predicate = (\Account.profile).all(\.creationDate) == date
+let predicate = (\Account.profiles).all(\.creationDate) == date
 
 // Matches all accounts where any of the associated profiles has a name containing 'John'.
 let predicate = (\Account.profiles).any(\.name).contains("John"))
@@ -563,7 +668,7 @@ let predicate = (\Account.profiles).none(\.name) == "John Doe"
 ### Sub-predicates
 
 When your object has one-to-many relationships, you can create a sub-predicate that filters the "many" relationships and use the
-resuult of the sub-predicate in a more complex predicate. Sub-predicates are created using the global `all(_:where:)` function. The first
+result of the sub-predicate in a more complex predicate. Sub-predicates are created using the global `all(_:where:)` function. The first
 parameter is the key-path of the collection to filter and the second parameter is a predicate that filters the collection.
 
 `all(_:where:)` evaluates to an array; that means you can perform any valid [array operation](#array-operations) on its result such as `size`, `first`, etc.
@@ -588,7 +693,7 @@ let notes: [Note] = try managedObjectContext
   .fetch(where: (\Note.text).contains("Hello, World!") && \Note.creationDate < Date())
   .limit(50) // Return 50 objects matching the predicate.
   .offset(100) // Skip the first 100 objects matching the predicate.
-  .sorted(by: \Note.text) // Sort the matching objects by their creation date.
+  .sorted(by: \Note.creationDate) // Sort the matching objects by their creation date.
   .result()
 ```
 
@@ -675,7 +780,7 @@ Specifies the persistent stores to be searched when the fetch request is execute
 
 ```swift
 let store1: NSPersistentStore = ...
-let store2: NSPersistenStore = ...
+let store2: NSPersistentStore = ...
 
 managedObjectContext.fetch(where: ...)
   .fromStores(store1, store2)
@@ -748,7 +853,7 @@ managedObjectContext.fetch(where: ...)
 
 ### having
 
-pecifies the predicate to use to filter objects returned by a request with a [`groupBy(_:)`](#groupby) modifier applied.
+Specifies the predicate to use to filter objects returned by a request with a [`groupBy(_:)`](#groupby) modifier applied.
 
 ###### Usage
 
@@ -797,7 +902,7 @@ managedObjectContext.fetch(where: ...)
 Specifies how the objects returned by the request should be sorted. This modifier takes one required parameter and 2 optional ones:
 
 - `by`: the key-path by which to sort the objects. (Required)
-- `order`: the order in which to sort the object. (Optional, defaults to `.ascending`)
+- `order`: the order in which to sort the objects. (Optional, defaults to `.ascending`)
 - `comparator`: a custom comparator to use to sort the objects. (Optional, defaults to `nil`)
 
 ###### Usage

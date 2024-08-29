@@ -81,7 +81,7 @@ struct NSFetchRequestBuilder {
       case .none:
         return NSCompoundPredicate(notPredicateWithSubpredicate: NSComparisonPredicate(
           leftExpression: makeExpression(from: comparison.expression),
-          rightExpression: NSExpression(forConstantValue: comparison.value),
+          rightExpression: makeExpression(from: comparison.value),
           modifier: makeComparisonModifier(from: comparison.modifier),
           type: makeOperator(from: comparison.operator),
           options: makeComparisonOptions(from: comparison.options)
@@ -111,7 +111,7 @@ struct NSFetchRequestBuilder {
   }
 
   private func makeExpression(from primitive: Primitive) -> NSExpression {
-    return NSExpression(forConstantValue: primitive.value)
+    return NSExpression(forConstantValue: primitive.predicateValue)
   }
 
   private func makeOperator(from operator: ComparisonOperator) -> NSComparisonPredicate.Operator {
@@ -302,16 +302,10 @@ extension Query: NSExpressionConvertible {
   }
 }
 
-// MARK: - Primitive
-
-private extension Primitive {
-  var value: Any? {
-    switch Self.type {
-    case .nil:
-      return NSNull()
-    default:
-      return self
-    }
+extension ObjectIdentifier: NSExpressionConvertible where Object: NSExpressionConvertible {
+  func toNSExpression(options: NSExpressionConversionOptions) -> NSExpression {
+    let root = self.root.toNSExpression(options: options)
+    return NSExpression(format: "\(root).id")
   }
 }
 
@@ -319,7 +313,7 @@ private extension Primitive {
 
 extension AnyKeyPath {
   var stringValue: String {
-    // https://github.com/apple/swift/blob/main/stdlib/public/core/KeyPath.swift#L124
+    // https://github.com/apple/swift/blob/swift-5.9.2-RELEASE/stdlib/public/core/KeyPath.swift#L191
     guard let value = _kvcKeyPathString else {
       fatalError("Could not create a string representation of the key path \(self).")
     }

@@ -313,6 +313,13 @@ public struct ArrayElementKeyPath<Array, Value>: Expression where Array: Express
   let elementKeyPath: AnyKeyPath
 }
 
+public struct ObjectIdentifier<Object: Expression, Identifier: Primitive>: Expression {
+  public typealias Root = Object
+  public typealias Value = Identifier
+
+  let root: Object
+}
+
 enum ComparisonOperator {
   case lessThan
   case lessThanOrEqual
@@ -342,6 +349,7 @@ public struct ComparisonOptions: OptionSet {
   public static let caseInsensitive = ComparisonOptions(rawValue: 1 << 0)
   public static let diacriticInsensitive = ComparisonOptions(rawValue: 1 << 1)
   public static let normalized = ComparisonOptions(rawValue: 1 << 2)
+  public static let none = ComparisonOptions(rawValue: 1 << 3)
 
   public init(rawValue: Int) {
     self.rawValue = rawValue
@@ -363,12 +371,29 @@ public func < <E: Expression, T: Comparable & Primitive> (lhs: E, rhs: T) -> Pre
   .comparison(.init(lhs, .lessThan, rhs))
 }
 
+public func < <E: Expression, T: RawRepresentable> (lhs: E, rhs: T) -> Predicate<E.Root> where E.Value == T, T.RawValue: Comparable & Primitive {
+  .comparison(.init(lhs, .lessThan, rhs.rawValue))
+}
+
 public func <= <E: Expression, T: Comparable & Primitive> (lhs: E, rhs: T) -> Predicate<E.Root> where E.Value == T {
   .comparison(.init(lhs, .lessThanOrEqual, rhs))
 }
 
+public func <= <E: Expression, T: RawRepresentable> (lhs: E, rhs: T) -> Predicate<E.Root> where E.Value == T, T.RawValue: Comparable & Primitive {
+  .comparison(.init(lhs, .lessThanOrEqual, rhs.rawValue))
+}
+
 public func == <E: Expression, T: Equatable & Primitive> (lhs: E, rhs: T) -> Predicate<E.Root> where E.Value == T {
   .comparison(.init(lhs, .equal, rhs))
+}
+
+public func == <E: Expression, T: RawRepresentable> (lhs: E, rhs: T) -> Predicate<E.Root> where E.Value == T, T.RawValue: Equatable & Primitive {
+  .comparison(.init(lhs, .equal, rhs.rawValue))
+}
+
+@available(iOS 13.0, watchOS 6.0, tvOS 13.0, *)
+public func == <E: Expression, T: Identifiable> (lhs: E, rhs: T) -> Predicate<E.Root> where E.Value == T, T.ID: Primitive {
+  .comparison(.init(ObjectIdentifier<E, T.ID>(root: lhs), .equal, rhs.id))
 }
 
 @_disfavoredOverload
@@ -380,12 +405,34 @@ public func != <E: Expression, T: Equatable & Primitive> (lhs: E, rhs: T) -> Pre
   .comparison(.init(lhs, .notEqual, rhs))
 }
 
+public func != <E: Expression, T: RawRepresentable> (lhs: E, rhs: T) -> Predicate<E.Root> where E.Value == T, T.RawValue: Equatable & Primitive {
+  .comparison(.init(lhs, .notEqual, rhs.rawValue))
+}
+
+@available(iOS 13.0, watchOS 6.0, tvOS 13.0, *)
+public func != <E: Expression, T: Identifiable> (lhs: E, rhs: T) -> Predicate<E.Root> where E.Value == T, T.ID: Primitive {
+  .comparison(.init(ObjectIdentifier<E, T.ID>(root: lhs), .notEqual, rhs.id))
+}
+
+@_disfavoredOverload
+public func != <E: Expression> (lhs: E, rhs: Nil) -> Predicate<E.Root> where E.Value: OptionalType {
+  .comparison(.init(lhs, .notEqual, rhs))
+}
+
 public func >= <E: Expression, T: Comparable & Primitive> (lhs: E, rhs: T) -> Predicate<E.Root> where E.Value == T {
   .comparison(.init(lhs, .greaterThanOrEqual, rhs))
 }
 
+public func >= <E: Expression, T: RawRepresentable> (lhs: E, rhs: T) -> Predicate<E.Root> where E.Value == T, T.RawValue: Comparable & Primitive {
+  .comparison(.init(lhs, .greaterThanOrEqual, rhs.rawValue))
+}
+
 public func > <E: Expression, T: Comparable & Primitive> (lhs: E, rhs: T) -> Predicate<E.Root> where E.Value == T {
   .comparison(.init(lhs, .greaterThan, rhs))
+}
+
+public func > <E: Expression, T: RawRepresentable> (lhs: E, rhs: T) -> Predicate<E.Root> where E.Value == T, T.RawValue: Comparable & Primitive {
+  .comparison(.init(lhs, .greaterThan, rhs.rawValue))
 }
 
 // MARK: - Compound Predicates
@@ -706,11 +753,22 @@ extension Optional: ComparableCollection where Wrapped: ComparableCollection {
 // MARK: - Private Initializers
 
 extension Comparison {
+  fileprivate init<E: Expression, P: Primitive>(
+    _ expression: E,
+    _ `operator`: ComparisonOperator,
+    _ value: P
+  ) {
+    self.expression = AnyExpression(expression)
+    self.operator = `operator`
+    self.value = value
+    self.options = P.defaultComparisonOptions
+  }
+
   fileprivate init<E: Expression>(
     _ expression: E,
     _ `operator`: ComparisonOperator,
     _ value: Primitive,
-    _ options: ComparisonOptions = .caseInsensitive
+    _ options: ComparisonOptions
   ) {
     self.expression = AnyExpression(expression)
     self.operator = `operator`
@@ -744,6 +802,20 @@ extension ArrayElementKeyPath {
       return .any
     case .none:
       return .none
+    }
+  }
+}
+
+extension Primitive {
+  static var defaultComparisonOptions: ComparisonOptions {
+    switch type {
+    case .uuid:
+      return .none
+
+    // TODO: Add proper defaults for the other types.
+    // For now, .caseInsensitive does not seem to hurt?
+    default:
+      return .caseInsensitive
     }
   }
 }
